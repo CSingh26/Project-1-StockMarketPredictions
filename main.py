@@ -12,7 +12,7 @@ data = pd.read_csv('data/infolimpioavanzadoTarget.csv')
 # print(data.shape)
 # print(data.describe())
 
-#Time series stock graph (first 4)
+# Time series stock graph (first 4)
 def stockPlot(stockName, ax):
     stockData = data[data['ticker'] == stockName]
     stockData = stockData[['date','open', 'high', 'low', 'close']]
@@ -37,4 +37,26 @@ for ax, stock in zip(axes.flatten(), (data['ticker'].unique()[:4])):
     stockPlot(stock, ax)
 
 plt.tight_layout()
+plt.show()
+
+avgStockPrice = {}
+
+for stock in data['ticker'].unique():
+    ticker_data = data[data['ticker'] == stock]
+    weighted_avg = np.average(ticker_data['close'], weights=ticker_data['volume'])
+    avgStockPrice[stock] = weighted_avg
+
+numericAvgStockPrice = {key: value for key, value in avgStockPrice.items() if isinstance(value, (int, float))}
+
+plt.bar(range(len(numericAvgStockPrice)), numericAvgStockPrice.values(), align='center')
+plt.xlabel('Stock Names')
+plt.ylabel('Avg Price')
+
+plt.xticks(range(len(numericAvgStockPrice)), list(numericAvgStockPrice.keys()), rotation='vertical')
+
+plt.title('Avg Stock Prices')
+
+for i, v in enumerate(numericAvgStockPrice.values()):
+    plt.text(i, v, f'{v:.2f}', ha='center', va='bottom')
+
 plt.show()
