@@ -103,10 +103,10 @@ for ax, stock in zip(axes.flatten(), (data['ticker'].unique()[:4])):
 plt.tight_layout()
 plt.show()
 
-## Predictive Modeling 
+# Predictive Modeling 
 
-#Doing for single stocks
-asleStock = data[data['ticker'] == 'ASLE']
+# Doing for single stocks
+asleStock = data[data['ticker'] == 'ATLC']
 asleStock = asleStock[['date', 'close', 'open', 'high', 'low']]
 
 asleStock['tomorrow'] = asleStock['close'].shift(-1)
@@ -161,13 +161,81 @@ for horizon in horizons:
 def predict(train, test, predictors, model):
     model.fit(train[predictors], train['target'])
     preds = model.predict_proba(test[predictors])[:,1]
-    preds[preds >= .65] = 1
-    preds[preds < .65] = 0
+    preds[preds >= .35] = 1
+    preds[preds < .35] = 0
     preds = pd.Series(preds, index=test.index, name="Predictions")
     combined = pd.concat([test['target'], preds], axis=1)
     
     return combined
 
-predictions = backtest(asleStock, model, newPredictors)
-print(predictions['Predictions'].value_counts())
-print(precision_score(predictions['target'], predictions['Predictions']))
+# predictions = backtest(asleStock, model, newPredictors)
+# print(predictions['Predictions'].value_counts())
+# print(precision_score(predictions['target'], predictions['Predictions']))
+
+#Refining prediction model for all stocks in the datasets
+def trainPredict(data, modelParams, horizonParams, backTestParams):
+    results = {}
+
+    for stock in data['ticker'].unique():
+        stockData = data[data['ticker'] == stock]
+        stockData = stockData[['date', 'close', 'open', 'high', 'low']]
+
+        stockData['tomorrow'] = stockData['close'].shift(-1)
+        stockData['target'] = (stockData['tomorrow'] > stockData['close']).astype(int)
+
+        model = RandomForestClassifier(**modelParams)
+
+        horizons = horizonParams['horizons']
+        predictors = []
+        stockData.iloc[:, 1:] = stockData.iloc[:, 1:].apply(pd.to_numeric, errors='coerce')
+        for horizon in horizons:
+            avgs = stockData.iloc[:, 1:].rolling(horizon, axis=0).mean()
+            
+            ratio = f"closeRatio_{horizon}"
+            stockData[ratio] = stockData['close'] / avgs['close']
+
+            trend = f"tred_{horizon}"
+            stockData[trend] = stockData.iloc[:, 1:].shift(1).rolling(horizon).sum()["target"]
+            predictors += [ratio, trend]
+
+        predictions = backtest(stockData, model, predictors, **backTestParams)
+        precision = precision_score(predictions['target'], predictions['Predictions'])
+
+        results[stock] = {
+                'precision': precision,
+                'predictions': predictions
+        }
+
+    return results
+
+def predict(train, test, predictors, model):
+    model.fit(train[predictors], train['target'])
+    preds = model.predict_proba(test[predictors])[:,1]
+    preds[preds >= .50] = 1
+    preds[preds < .50] = 0
+    preds = pd.Series(preds, index=test.index, name="Predictions")
+    combined = pd.concat([test['target'], preds], axis=1)
+    
+    return combined
+
+def backtest(data, model, predictors, start=150, step=50):
+    allPredictions = []
+
+    for i in range(start, data.shape[0], step):
+        train = data.iloc[0:i]
+        test = data.iloc[i:(i+step)]
+        predictions = predict(train, test, predictors, model)
+        allPredictions.append(predictions)
+
+    return pd.concat(allPredictions)
+
+modelParams = {'n_estimators': 250, 'min_samples_split': 50, 'random_state': 1}
+horizonParams = {'horizons': [2, 5, 60, 250]}
+backtestParams = {'start': 150, 'step': 50}
+
+results = trainPredict(data, modelParams, horizonParams, backtestParams)
+
+for stock, res in results.items():
+    print(f"Ticker: {stock}")
+    print(f"Precision: {res['precision']}")
+    print(res['predictions']['Predictions'].value_counts())
