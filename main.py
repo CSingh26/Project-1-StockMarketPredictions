@@ -4,6 +4,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import seaborn as sns
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import precision_score
 
 #loading dataset to view it
 data = pd.read_csv('data/infolimpioavanzadoTarget.csv')
@@ -11,6 +13,8 @@ data = pd.read_csv('data/infolimpioavanzadoTarget.csv')
 # print(data.head())
 # print(data.shape)
 # print(data.describe())
+
+# Exploratory Data Analysis
 
 # Time series stock graph (first 4)
 def stockPlot(stockName, ax):
@@ -98,3 +102,43 @@ for ax, stock in zip(axes.flatten(), (data['ticker'].unique()[:4])):
 
 plt.tight_layout()
 plt.show()
+
+## Predictive Modeling 
+
+#Doing for single stocks
+asleStock = data[data['ticker'] == 'ASLE']
+asleStock = asleStock[['date', 'close', 'open', 'high', 'low']]
+
+asleStock['tomorrow'] = asleStock['close'].shift(-1)
+asleStock['target'] = (asleStock['tomorrow'] > asleStock['close']).astype(int)
+
+model = RandomForestClassifier(n_estimators=250, min_samples_split= 50, random_state=1)
+
+train = asleStock.iloc[:-100]
+test = asleStock.iloc[-100:]
+
+predictors = ["open", "high", "low", "close"]
+
+model.fit(train[predictors], train['target'])
+
+def predict(train, test, predictors, model):
+    model.fit(train[predictors], train['target'])
+    preds = model.predict(test[predictors])
+    preds = pd.Series(preds, index=test.index, name="Predictions")
+    combined = pd.concat([test['target'], preds], axis=1)
+    
+    return combined
+
+def backtest(data, model, predictors, start=150, step=50):
+    allPredictions = []
+
+    for i in range(start, data.shape[0], step):
+        train = data.iloc[0:i]
+        test = data.iloc[i:(i+step)]
+        predictions = predict(train, test, predictors, model)
+        allPredictions.append(predictions)
+
+    return pd.concat(allPredictions)
+    
+predictions = backtest(asleStock, model, predictors)
+print(precision_score(predictions['target'], predictions['Predictions']))
