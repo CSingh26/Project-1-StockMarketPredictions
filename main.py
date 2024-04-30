@@ -3,16 +3,19 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
-import seaborn as sns
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import precision_score
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression
+import warnings
+warnings.filterwarnings('ignore')
 
 #loading dataset to view it
 data = pd.read_csv('data/infolimpioavanzadoTarget.csv')
 
-# print(data.head())
-# print(data.shape)
-# print(data.describe())
+print(data.head())
+print(data.shape)
+print(data.describe())
 
 # Exploratory Data Analysis
 
@@ -239,3 +242,24 @@ for stock, res in results.items():
     print(f"Ticker: {stock}")
     print(f"Precision: {res['precision']}")
     print(res['predictions']['Predictions'].value_counts())
+
+#Prediction model
+X = data[['open', 'high', 'low', 'volume']]  
+y = data['close']
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.18, random_state=42)
+
+linReg = LinearRegression()
+linReg.fit(X_train, y_train)
+
+#Sample Data
+date_to_predict = '2024-04-29'  
+opening_price = 6.95 
+high_price = 7.10  
+low_price = 6.89  
+volume = 318659
+
+X_pred = np.array([[opening_price, high_price, low_price, volume]])
+
+predicted_price = linReg.predict(X_pred)
+print("Predicted closing price for", date_to_predict, ":", predicted_price)
