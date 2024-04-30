@@ -7,8 +7,8 @@ This repository contains Python code for stock price prediction and analysis. It
 3. __Sample Data__: Predict closing price for a given date based on provided opening, high, low prices, and volume.
 
 ## Requirements:
-__Python__ 3.12.x
-__Libraries__: numpy, pandas, matplotlib, scikit-learn
+1. __Python__ 3.12.x
+2. __Libraries__: numpy, pandas, matplotlib, scikit-learn
 
 ## Usage:
 1. Clone the repository.
